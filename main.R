@@ -3,9 +3,9 @@
 ## tfalk@bu.edu
 ## BU BF591
 ## Assignment Week 6
-
+BiocManager::install(c("edgeR", "limma","ggVennDiagram"))
 libs <- c("tidyverse", "ggVennDiagram", "BiocManager",
-          "DESeq2", "edgeR", "limma")
+          "DESeq2", "edgeR", "limma","readr")
 # if you don't have a package installed, use BiocManager::install() or 
 # install.packages(), as previously discussed.
 for (package in libs) {
@@ -33,9 +33,12 @@ for (package in libs) {
 #'
 #' @examples counts_df <- load_n_trim("/path/to/counts/verse_counts.tsv")
 load_n_trim <- function(filename) {
-    return(NULL)
+  data <- read_tsv(filename,show_col_types = FALSE) %>%
+    select(gene,vP0_1,vP0_2,vAd_1,vAd_2) %>%
+    column_to_rownames("gene") %>%
+    as.data.frame()
+  return(data)
 }
-
 #' Perform a DESeq2 analysis of rna seq data
 #'
 #' @param count_dataframe The data frame of gene names and counts.
@@ -57,7 +60,23 @@ load_n_trim <- function(filename) {
 #'
 #' @examples run_deseq(counts_df, coldata, 10, "condition_day4_vs_day7")
 run_deseq <- function(count_dataframe, coldata, count_filter, condition_name) {
-    return(NULL)
+    dds <- DESeqDataSetFromMatrix(
+      countData = round(as.matrix(count_dataframe)),
+      colData = coldata,
+      design = ~ condition
+    )
+    keep <- rowSums(counts(dds)) >= count_filter
+    dds <- dds[keep, ]
+    
+    dds <- DESeq(dds)
+    
+    res <- DESeq2::results(dds,name = condition_name)
+    res_df <- as.data.frame(res)
+    #attr(res_df,"condition") <- condition_name
+    
+    return(list(
+      dds = dds,
+      results = res_df))
 }
 
 #### edgeR ####
@@ -77,7 +96,18 @@ run_deseq <- function(count_dataframe, coldata, count_filter, condition_name) {
 #'
 #' @examples run_edger(counts_df, group)
 run_edger <- function(count_dataframe, group) {
-    return(NULL)
+    #build DGEList object
+    dge <- DGEList(counts = count_dataframe, group=group)
+    #normalize using TMM
+    dge <- calcNormFactors(dge)
+    #estimate dispersion
+    dge <- estimateDisp(dge)
+    #exact test for differential expression
+    et <- exactTest(dge)
+    #extract results - return only logFC, logCPM, PValue
+    res_df <- as.data.frame(topTags(et,n=Inf,sort.by = "none"))[, c("logFC","logCPM","PValue")]
+    
+    return(res_df)
 }
 
  #### limma ####
@@ -101,7 +131,19 @@ run_edger <- function(count_dataframe, group) {
 #' 
 #' @examples run_limma(counts_df, design, voom=TRUE)
 run_limma <- function(counts_dataframe, design, group) {
-    return(NULL)
+    dge <- DGEList(counts = counts_dataframe)
+    dge <- calcNormFactors(dge)
+    
+    v <- voom(dge,design)
+    fit <- lmFit(v,design)
+    fit <- eBayes(fit)
+    res_df <- topTable(
+      fit,
+      coef = 2,
+      number = 1000,
+      sort.by = "p"
+    )
+    return(res_df)
 }
 
 #### ggplot ####

@@ -50,8 +50,22 @@ coldata
 # a warning about factors here is normal
 deseq_res <- run_deseq(counts_df, coldata, 10, "condition_day0_vs_adult")
 cat("deseq results:")
-head(deseq_res)
+print(head(deseq_res))
 ```
+
+```{r}
+dds <- DESeqDataSetFromMatrix(
+  countData = round(as.matrix(counts_df)),
+  colData = coldata,
+  design = ~ condition
+)
+print(dds)
+
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep, ]
+print(nrows(dds))
+```
+
 
 ### EdgeR
 EdgeR's method of describing an experiment is more simple than DESeq2. The default results for EdgeR **do not** include p-adjusted values, but we can add them ourselves. Once we have the results stored, we can add a new column by using the `stats::p.adjust()` function with `method = 'BH'`.
