@@ -74,9 +74,7 @@ run_deseq <- function(count_dataframe, coldata, count_filter, condition_name) {
     res_df <- as.data.frame(res)
     #attr(res_df,"condition") <- condition_name
     
-    return(list(
-      dds = dds,
-      results = res_df))
+    return(res_df)
 }
 
 #### edgeR ####
