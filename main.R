@@ -67,14 +67,13 @@ run_deseq <- function(count_dataframe, coldata, count_filter, condition_name) {
     )
     keep <- rowSums(counts(dds)) >= count_filter
     dds <- dds[keep, ]
-    
+    dds$condition <- relevel(dds$condition,ref = tail(strsplit(condition_name, "_vs_")[[1]],n=1))
     dds <- DESeq(dds)
     
     res <- DESeq2::results(dds,name = condition_name)
-    res_df <- as.data.frame(res)
-    #attr(res_df,"condition") <- condition_name
+    #res_df <- as.data.frame(res)
     
-    return(res_df)
+    return(res)
 }
 
 #### edgeR ####
@@ -103,7 +102,7 @@ run_edger <- function(count_dataframe, group) {
     #exact test for differential expression
     et <- exactTest(dge)
     #extract results - return only logFC, logCPM, PValue
-    res_df <- as.data.frame(topTags(et,n=Inf,sort.by = "none"))[, c("logFC","logCPM","PValue")]
+    res_df <- et$table
     
     return(res_df)
 }
@@ -173,7 +172,18 @@ run_limma <- function(counts_dataframe, design, group) {
 #' 2 deseq   9.97e-261
 #' 3 deseq   1.16e-206
 combine_pval <- function(deseq, edger, limma) {
-    return(NULL)
+    pvals <- data.frame(
+      deseq = deseq$pvalue,
+      edger = edger$PValue,
+      limma = limma$P.Value
+    )
+    gathered <- tidyr::pivot_longer(
+      pvals,
+      cols = everything(),
+      names_to = "package",
+      values_to = "pval")
+    
+    return(gathered)
 }
 
 #' Create three separate facets for each of the diff. exp. pacakges.
@@ -197,7 +207,27 @@ combine_pval <- function(deseq, edger, limma) {
 #' 1  -9.84 2.23e-180 edgeR  
 #' 2   6.18 5.87e-179 edgeR  
 create_facets <- function(deseq, edger, limma) {
-    return(NULL)
+    deseq_df <- data.frame(
+      logFC = deseq$log2FoldChange,
+      padj = deseq$padj,
+      package = "DESEq2"
+    )
+    
+    edger_df <- data.frame(
+      logFC = edger$logFC,
+      padj = edger$padj,
+      package = "edgeR"
+    )
+    
+    limma_df <- data.frame(
+      logFC = limma$logFC,
+      padj = limma$adj.P.Val,
+      package = "limma"
+    )
+    
+    combined <- rbind(deseq_df,edger_df,limma_df)
+    
+    return(combined)
 }
 
 #' Create an attractive volcano plot of three diff. exp. packages' data.
@@ -227,6 +257,23 @@ create_facets <- function(deseq, edger, limma) {
 #'
 #' @examples p <- theme_plot(volcano)
 theme_plot <- function(volcano_data) {
-    return(NULL)
+  volcano_data$significance <- ifelse(volcano_data$padj < 1e-100, "significant","not significant")
+    ggplot(
+      data = volcano_data,
+      aes(x=logFC,y=-log10(padj),color=significance)
+    ) +
+    geom_point(alpha=0.6,size=1.2) +
+    #geom_hline(yintercept=-log10(0.05),linetype = "dashed",color="grey40",linewidth=0.5)
+      scale_color_manual(
+        values = c("significant" = "#E64B35", "not significant" = "#4DBBD5"),
+        labels = c("significant" = "TRUE", "not significant" = "FALSE")
+      ) + 
+    facet_wrap(~package, ncol=1) +
+    labs(
+      title = "Volcano Plot; day0 vs adult",
+      x = "log2 fold change",
+      y = "log10(adjusted p-value)"
+    ) + 
+    theme_minimal()
 }
 

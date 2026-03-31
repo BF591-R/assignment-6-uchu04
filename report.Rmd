@@ -1,7 +1,7 @@
 ---
 title: "Assignment 6 Report"
-author: "Taylor Falk"
-date: "1/24/2022"
+author: "Uyen Chu"
+date: "3/30/26"
 output: html_document
 ---
 
@@ -26,8 +26,8 @@ If you like aesthetics, feel free to remove the above warning section from your 
 
 ## Setup
 ```{r Packages + setup, }
-source("main.R") # load all our wonderful functions
-knitr::opts_chunk$set(echo = FALSE) # no markdown for you <3
+source("main.R", local = knitr::knit_global()) # load all our wonderful functions
+knitr::opts_chunk$set(echo = TRUE) # no markdown for you <3
 ```
 
 Load the data using `load_n_trim()` and store into a variable.
@@ -50,23 +50,8 @@ coldata
 # a warning about factors here is normal
 deseq_res <- run_deseq(counts_df, coldata, 10, "condition_day0_vs_adult")
 cat("deseq results:")
-print(head(deseq_res))
+head(deseq_res)
 ```
-
-```{r}
-dds <- DESeqDataSetFromMatrix(
-  countData = round(as.matrix(counts_df)),
-  colData = coldata,
-  design = ~ condition
-)
-print(dds)
-
-keep <- rowSums(counts(dds)) >= 10
-dds <- dds[keep, ]
-print(nrows(dds))
-```
-
-
 ### EdgeR
 EdgeR's method of describing an experiment is more simple than DESeq2. The default results for EdgeR **do not** include p-adjusted values, but we can add them ourselves. Once we have the results stored, we can add a new column by using the `stats::p.adjust()` function with `method = 'BH'`.
 ```{r edgeR}
@@ -84,6 +69,7 @@ edger_res$padj <- p.adjust(edger_res$PValue,
 cat("edger _with_ padj:")
 head(edger_res, 3)
 ```
+
 
 ### Limma with voom
 Finally, we create an experimental design variable for Limma. We _will_ be using voom in this analysis, so set your voom argument to `TRUE`. If your limma/voom functions include a plot, that's fine! Bonus plots are always fun for cramming into your supplemental materials.
@@ -103,6 +89,7 @@ head(limma_res)
 ## Plots
 We don't want to worry our little heads plotting _all_ of the data, so we will just trim it down to the 1,000 most significant p-values. Order each of the three results set by **p-value** and take the top (smallest) 1,000 rows. Note that we are _plotting_ the **p-adjusted** values but we are _sorting_ the **p-values**. This is an important distinction.
 ```{r Trim data}
+deseq_df <- as.data.frame(deseq_res)
 cat("Limma shape before: ")
 print(str(limma_res))
 edger_res <- edger_res[order(edger_res$PValue),][1:1000,]
